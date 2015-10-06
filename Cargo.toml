@@ -1,0 +1,14 @@
+[package]
+
+name = "enum_hall"
+version = "0.0.1"
+authors = [ "Your name <you@example.com>" ]
+
+[[bin]]
+
+name = "enum_hall"
+
+[dependencies]
+rand = "*"
+custom_derive = "*"
+enum_derive = "*"
