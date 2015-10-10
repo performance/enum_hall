@@ -4,8 +4,6 @@ extern crate rand;
 
 
 use rand::Rng;
-// use rand::Rand;
-use rand::distributions::{IndependentSample, Range};
 
 struct SimulationResult {
     win: bool,
@@ -13,28 +11,20 @@ struct SimulationResult {
 }
 
 custom_derive! {
-    #[derive(Debug, PartialEq, Eq,
+    #[derive(Debug, PartialEq, Eq, Clone,
         IterVariants(DoorChoiceVariants), IterVariantNames(DoorChoiceVariantNames))]
     pub enum DoorChoice { Door1, Door2, Door3 }
 }
 
 // Run a single simulation of the Monty Hall problem.
-fn simulate<R: Rng>(random_door: &Range<u32>, rng: &mut R) -> SimulationResult {
-    let car = random_door.ind_sample(rng);    
-    
-    // This is our initial choice
-    let choice = random_door.ind_sample(rng);
-    // The game host opens a door
-    let open = game_host_open(car, choice, rng);
+fn simulate_choice<R: Rng>(door_choices: &Vec<DoorChoice>, rng: &mut R) -> SimulationResult {
 
-    let switch = switch_door(choice, open);
+    let car_choice    : DoorChoice = rand::sample( rng, door_choices.into_iter(), 1)[0].clone();
+    let player_choice : DoorChoice = rand::sample( rng, door_choices.into_iter(), 1)[0].clone();
 
-    let door_choices  = DoorChoice::iter_variants().collect::<Vec<_>>();
-    
-    let car_choice    : &DoorChoice = &door_choices[ car.clone()    as usize ];
-    let player_choice : &DoorChoice = &door_choices[ choice.clone() as usize ];
-//    let open_choice   : &DoorChoice = &door_choices[ open.clone()   as usize ];
-    let switch_choice : &DoorChoice = &door_choices[ switch.clone() as usize ];
+    // // The game host opens a door
+    let host_choice   : DoorChoice = game_host_open_choice( &car_choice, &player_choice, rng );
+    let switch_choice              = switch_door_choice( &player_choice, &host_choice );
 
     // Shall we switch?
     let we_should_switch = rng.gen();
@@ -47,19 +37,21 @@ fn simulate<R: Rng>(random_door: &Range<u32>, rng: &mut R) -> SimulationResult {
 
 // Returns the door the game host opens given our choice and knowledge of
 // where the car is. The game host will never open the door with the car.
-fn game_host_open<R: Rng>(car: u32, choice: u32, rng: &mut R) -> u32 {
-    let choices = free_doors(&[car, choice]);
-    rand::sample(rng, choices.into_iter(), 1)[0]
+fn game_host_open_choice<R: Rng>( car_choice: &DoorChoice, player_choice: &DoorChoice, rng: &mut R ) -> DoorChoice {
+    let choices = free_door_choices(&[ car_choice, player_choice]);
+    rand::sample(rng, choices.into_iter(), 1)[0].clone()
 }
+
 
 // Returns the door we switch to, given our current choice and
 // the open door. There will only be one valid door.
-fn switch_door(choice: u32, open: u32) -> u32 {
-    free_doors(&[choice, open])[0]
+fn switch_door_choice( player_choice: &DoorChoice, host_choice: &DoorChoice) -> DoorChoice {
+    free_door_choices(&[ player_choice, host_choice])[0].clone()
 }
 
-fn free_doors(blocked: &[u32]) -> Vec<u32> {
-    (0..3).filter(|x| !blocked.contains(x)).collect()
+fn free_door_choices(blocked: &[ &DoorChoice]) -> Vec< DoorChoice> {
+    let door_choices  = DoorChoice::iter_variants();//.collect::<Vec<_>>();
+    door_choices.filter(| x| !blocked.contains( &x)).collect()
 }
 
 pub
@@ -68,14 +60,16 @@ fn guessing_game() {
     let num_simulations = 1_000_000;
 
     let mut rng = rand::thread_rng();
-    let random_door = Range::new(0, 3);
+
+    let door_choices  = DoorChoice::iter_variants().collect::<Vec<_>>();
 
     let (mut switch_wins, mut switch_losses) = (0, 0);
     let (mut keep_wins, mut keep_losses) = (0, 0);
 
     println!("Running {} simulations...", num_simulations);
     for _ in 0..num_simulations {
-        let result = simulate(&random_door, &mut rng);
+        // let result = simulate(&random_door, &mut rng);
+        let result = simulate_choice( &door_choices, &mut rng);
 
         match (result.win, result.switch) {
             (true, true) => switch_wins += 1,
